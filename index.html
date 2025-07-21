@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive ARK: Ascended Console Command Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chosen Palette: Calm Harmony (Slate grays, with subtle red, yellow, and green accents for impact tags) -->
+    <!-- Application Structure Plan: A dynamic, filterable dashboard of command cards. The core design prioritizes quick information retrieval over the source's linear structure. Users can instantly search, filter by performance impact or category (a newly added data point for better organization), and sort commands to find what they need. A "copy to clipboard" feature enhances usability by making the commands immediately actionable. This structure turns a static reference guide into an interactive tool. -->
+    <!-- Visualization & Content Choices: The source is textual data. Goal: Organize & Inform. Method: Interactive Cards. Each command is a "card" containing its name, descriptions, and a new "category" tag. Interaction: Live search, multi-faceted filtering (impact, category), sorting, and a copy button. Justification: This card-based, filterable layout is superior to a long static list for technical reference material, allowing users to query the data set based on their specific needs (e.g., "show me all high-impact shadow commands"). Library: Vanilla JS for all logic. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .filter-btn-active {
+            background-color: #334155 !important;
+            color: #ffffff !important;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-900">Interactive ARK: Ascended Console Command Guide</h1>
+            <p class="mt-2 text-lg text-slate-600">Search, filter, and sort console commands to optimize your game's performance and visuals.</p>
+        </header>
+
+        <div id="controls" class="mb-8 p-4 bg-white rounded-lg shadow-md border border-slate-200 sticky top-4 z-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="lg:col-span-2">
+                    <label for="search" class="block text-sm font-medium text-slate-700 mb-1">Search Commands</label>
+                    <input type="text" id="search" placeholder="Search for 'shadow', 'lumen', 'fog'..." class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500">
+                </div>
+                <div>
+                    <label for="filter-impact" class="block text-sm font-medium text-slate-700 mb-1">Filter by FPS Impact</label>
+                    <select id="filter-impact" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 bg-white">
+                        <option value="all">All Impacts</option>
+                        <option value="High">High</option>
+                        <option value="Medium to High">Medium to High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low to Medium">Low to Medium</option>
+                        <option value="Low">Low</option>
+                        <option value="Varies">Varies</option>
+                        <option value="None">None</option>
+                        <option value="Negligible">Negligible</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sort-by" class="block text-sm font-medium text-slate-700 mb-1">Sort By</label>
+                    <select id="sort-by" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-slate-500 focus:border-slate-500 bg-white">
+                        <option value="alphabetical">Alphabetical (A-Z)</option>
+                        <option value="impact-desc">Impact (High to Low)</option>
+                        <option value="impact-asc">Impact (Low to High)</option>
+                    </select>
+                </div>
+                 <div class="lg:col-span-4">
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Filter by Category</label>
+                    <div id="category-filters" class="flex flex-wrap gap-2">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="command-count" class="mb-4 text-slate-600 font-medium"></div>
+
+        <div id="command-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <!-- Command cards will be inserted here by JavaScript -->
+        </div>
+
+        <div id="no-results" class="hidden text-center py-16">
+            <p class="text-xl text-slate-500">No commands found matching your criteria.</p>
+        </div>
+    </div>
+
+    <script>
+        const commands = [
+            { command: 'ark.ConvertGroundClutter 0', controls: 'Conversion of ground clutter.', effect: 'May reduce the visual fidelity or presence of small ground clutter elements, making the ground appear cleaner or less "noisy."', impact: 'Low to Medium', category: 'Foliage/Grass' },
+            { command: 'ark.MaxActiveDestroyedMeshGeoCollectionCount 0', controls: 'The maximum number of destroyed mesh geometry collections that remain active.', effect: 'Prevents accumulation of destroyed mesh debris, which can otherwise consume memory and potentially impact performance over time.', impact: 'Low', category: 'Geometry/Meshes' },
+            { command: 'FX.MaxCPUParticlesPerEmitter 2', controls: 'The maximum number of CPU particles allowed per emitter.', effect: 'Reduces the complexity and density of particle effects, which can significantly improve performance in visually busy scenes.', impact: 'Medium to High', category: 'Particles' },
+            { command: 'r.AOOverwriteSceneColor 0', controls: 'A setting that allows Ambient Occlusion (AO) to overwrite the scene color.', effect: 'Prevents AO from potentially causing overly dark or incorrect color shifts in certain areas, ensuring AO is applied as an additive darkening effect.', impact: 'None', category: 'Post-Processing' },
+            { command: 'r.BloomQuality 0', controls: 'Bloom', effect: 'Removes the glow effect around bright lights and highlights, resulting in a sharper, less "dreamy" visual.', impact: 'Low', category: 'Post-Processing' },
+            { command: 'r.ContactShadows 0', controls: 'Contact Shadows', effect: 'Removes fine, detailed shadows where objects are very close to a surface, which can make objects look like they are floating slightly.', impact: 'Low', category: 'Shadows' },
+            { command: 'r.DepthOfFieldQuality 0', controls: 'Depth of Field (DoF)', effect: 'Makes the entire scene sharp and in focus, removing any background or foreground blur.', impact: 'Low to Medium', category: 'Post-Processing' },
+            { command: 'r.detailmode 0', controls: 'The overall detail mode for rendering.', effect: 'Reduces the detail of various game elements, potentially affecting mesh complexity, particle systems, and other visual nuances.', impact: 'Medium', category: 'Geometry/Meshes' },
+            { command: 'r.DistanceFieldShadowing 0', controls: 'Distance Field Shadows', effect: 'Removes all shadows in the distance that are generated by this method. Distant objects might lose their ambient shadowing.', impact: 'Medium', category: 'Shadows' },
+            { command: 'r.EyeAdaptationQuality 0', controls: 'Eye Adaptation (auto-exposure)', effect: 'Prevents sudden brightness shifts when moving between light and dark environments.', impact: 'Low to Medium', category: 'Post-Processing' },
+            { command: 'r.Fog 0', controls: 'All atmospheric fog', effect: 'Removes all fog from the world, making distant objects appear clearer but potentially flattening the scene\'s depth.', impact: 'Medium', category: 'Atmospherics' },
+            { command: 'r.foliage.AutoBoundsWPODisableMax 1', controls: 'Foliage rendering and World Position Offset (WPO) optimization.', effect: 'Can reduce the computational cost of animating distant foliage, potentially leading to less realistic movement.', impact: 'Low', category: 'Foliage/Grass' },
+            { command: 'r.foliage.WPODisableMultiplier 1', controls: 'A multiplier for World Position Offset (WPO) disable distance for foliage.', effect: 'Influences how far away foliage will stop using WPO animations (like wind sway).', impact: 'Low', category: 'Foliage/Grass' },
+            { command: 'r.LensFlareQuality 0', controls: 'Lens Flares', effect: 'Removes visual obstructions caused by bright lights, providing a clearer view.', impact: 'Low', category: 'Post-Processing' },
+            { command: 'r.LightCulling.Quality 0', controls: 'The quality of light culling.', effect: 'Can lead to less accurate light assignments or potentially more lights being rendered than strictly necessary.', impact: 'Low to Medium', category: 'Lighting' },
+            { command: 'r.LightShaftQuality 0', controls: 'Light Shafts (God Rays)', effect: 'Removes the visible light beams, making scenes with strong light sources appear less atmospheric.', impact: 'Low to Medium', category: 'Post-Processing' },
+            { command: 'r.Lumen.DiffuseIndirect.Allow 0', controls: 'The diffuse indirect lighting component of Lumen.', effect: 'Drastically lowers the game\'s look by reducing the realism of bounced light and soft shadows.', impact: 'High', category: 'Lumen/GI' },
+            { command: 'r.Lumen.Reflections.Allow 0', controls: 'Lumen Reflections', effect: 'Reflective surfaces will appear less accurate or reflective, leading to a flatter appearance.', impact: 'Medium', category: 'Lumen/GI' },
+            { command: 'r.PostProcessing.DisableMaterials 1', controls: 'Post-processing materials', effect: 'Removes any artistic or stylistic filters, color grading, or other full-screen effects implemented via post-process materials.', impact: 'Low to Medium', category: 'Post-Processing' },
+            { command: 'r.Shading.FurnaceTest.SampleCount 0', controls: 'A specific shading test or sample count', effect: 'Unlikely to have a noticeable visual effect for players; an internal engine setting.', impact: 'Negligible', category: 'Engine/Debug' },
+            { command: 'r.Shadow.Virtual.Enable 0', controls: 'Virtual Shadow Maps (VSM)', effect: 'Removes high-fidelity UE5 shadows, potentially reverting to older, less detailed shadow rendering methods.', impact: 'High', category: 'Shadows' },
+            { command: 'r.Streaming.PoolSize 0', controls: 'The texture streaming pool size limit.', effect: 'Allows the game to utilize more of your GPU\'s VRAM for textures. Can cause instability on low VRAM GPUs.', impact: 'Varies', category: 'Textures/Materials' },
+            { command: 'r.VolumetricCloud 0', controls: 'Volumetric Clouds', effect: 'Removes the complex 3D clouds from the sky, replacing them with a simpler skybox or stationary 2D clouds.', impact: 'High', category: 'Atmospherics' },
+            { command: 'r.VolumetricFog 0', controls: 'Volumetric Fog', effect: 'Removes realistic fog effects, leading to a clearer, but potentially less atmospheric, view.', impact: 'Medium to High', category: 'Atmospherics' },
+            { command: 'r.water.singlelayer 0', controls: 'Single-layer water rendering', effect: 'Can significantly simplify water rendering, making it look less realistic or transparent. A more aggressive optimization than just disabling reflections.', impact: 'Medium to High', category: 'Water' },
+            { command: 'r.Water.SingleLayer.Reflection 0', controls: 'Single Layer Water Reflections', effect: 'Removes reflections from water surfaces. Water will appear less dynamic and reflective.', impact: 'Low to Medium', category: 'Water' },
+            { command: 'stat fps', controls: 'Toggles an on-screen Frames Per Second (FPS) counter.', effect: 'Displays your current frame rate in a corner of the screen. Running it again will disable the counter.', impact: 'Negligible', category: 'UI/Debug' },
+            { command: 'wp.Runtime.HLOD 0', controls: 'Hierarchical Level of Detail (HLOD) at runtime.', effect: 'Disabling HLOD can increase draw calls and reduce performance in open-world environments by rendering more detailed meshes at a distance.', impact: 'Medium to High', category: 'Geometry/Meshes' },
+            { command: 'foliage.MaxTrianglesToRender (value)', controls: 'The maximum number of triangles for foliage.', effect: 'Lower values reduce the density and draw distance of environmental foliage, making the ground look barer.', impact: 'Medium to High', category: 'Foliage/Grass' },
+            { command: 'gamma (value)', controls: 'The gamma correction setting.', effect: 'Adjusts overall brightness and contrast. Higher values (e.g., 3, 4) make the screen much brighter at the cost of visual fidelity.', impact: 'None', category: 'Post-Processing' },
+            { command: 'Grass.Enable (value)', controls: 'The presence of non-gatherable grass.', effect: '0 removes all non-interactive grass from the world. 1 (default) enables it.', impact: 'Medium to High', category: 'Foliage/Grass' },
+            { command: 'grass.sizeScale (value)', controls: 'The scale (height/size) of grass.', effect: '0 makes grass extremely short. 1 is default. Values >1 increase height.', impact: 'Low to Medium', category: 'Foliage/Grass' },
+            { command: 'r.DynamicGlobalIlluminationMethod (value)', controls: 'The dynamic global illumination method.', effect: '2 disables Lumen. 0 reverts to a simpler method. 1 can enable Lumen.', impact: 'High', category: 'Lumen/GI' },
+            { command: 'r.grass.DensityQualityLevel (value)', controls: 'The density and quality of grass rendering.', effect: 'Lower values (e.g., 0, 0.1) greatly reduce the amount and quality of grass.', impact: 'High', category: 'Foliage/Grass' },
+            { command: 'r.Lumen.ScreenProbeGather.RadianceCache.ProbeResolution (value)', controls: 'Resolution of Lumen\'s radiance cache probes.', effect: 'Lower values (e.g., 8, 16) reduce the visual fidelity of global illumination.', impact: 'Medium', category: 'Lumen/GI' },
+            { command: 'r.MaterialQualityLevel (value)', controls: 'The overall quality level of materials/shaders.', effect: '0 forces the lowest possible quality. Higher values increase quality.', impact: 'High', category: 'Textures/Materials' },
+            { command: 'r.MipMapLODBias (value)', controls: 'The level of detail (LOD bias) for textures (mipmaps).', effect: 'Positive values make textures blurrier. Negative values make them sharper.', impact: 'Low to Medium', category: 'Textures/Materials' },
+            { command: 'r.Nanite.MaxPixelsPerEdge (value)', controls: 'The detail level of Nanite meshes.', effect: 'Lower values (e.g., 4) reduce geometric detail of distant objects. 1 is default (highest quality).', impact: 'Medium', category: 'Geometry/Meshes' },
+            { command: 'r.Shadow.CSM.MaxCascades (value)', controls: 'Shadow Cascades for Cascade Shadow Maps (CSM).', effect: '0 disables cascading, resulting in simpler, less detailed distant shadows. Higher values increase quality.', impact: 'Medium to High', category: 'Shadows' },
+            { command: 'r.ShadowQuality (value)', controls: 'The overall shadow quality.', effect: '0 represents the lowest possible shadow quality or disables most shadows. Higher values increase quality.', impact: 'High', category: 'Shadows' },
+            { command: 'r.SkyAtmosphere (value)', controls: 'The Sky Atmosphere system.', effect: '0 disables the realistic sky, resulting in a simpler, less dynamic sky. 1 is default.', impact: 'Medium to High', category: 'Atmospherics' },
+            { command: 'r.SkylightIntensityMultiplier (value)', controls: 'The intensity of the skylight.', effect: 'Adjusts ambient light intensity. Values >1 brighten shadows; <1 darken them.', impact: 'None', category: 'Lighting' },
+            { command: 'r.Tonemapper.Sharpen (value)', controls: 'The sharpening amount applied by the tonemapper.', effect: 'Higher values increase image sharpness, which can make details pop.', impact: 'None', category: 'Post-Processing' },
+            { command: 'sg.FoliageQuality (value)', controls: 'The scalability group setting for foliage quality.', effect: '0 (lowest) significantly reduces quality, density, and draw distance of all foliage. Higher values increase it.', impact: 'High', category: 'Foliage/Grass' },
+            { command: 'sg.GlobalIlluminationQuality (value)', controls: 'The scalability group setting for global illumination quality.', effect: '0 (lowest) drastically reduces or disables global illumination effects. Higher values increase quality.', impact: 'High', category: 'Lumen/GI' },
+            { command: 'sg.TextureQuality (value)', controls: 'The scalability group setting for texture quality.', effect: '0 (lowest) forces textures to render at their lowest possible resolution. Higher values increase quality.', impact: 'Medium to High', category: 'Textures/Materials' },
+            { command: 'Slate.GlobalScrollAmount (value)', controls: 'The global scroll amount for UI elements.', effect: 'Changes how much UI elements (like menus) scroll with each input.', impact: 'None', category: 'UI/Debug' },
+            { command: 'slate.contrast (value)', controls: 'The contrast of UI elements.', effect: 'Values >1 increase UI contrast, making elements sharper. 1 is default.', impact: 'None', category: 'UI/Debug' }
+        ];
+
+        const commandGrid = document.getElementById('command-grid');
+        const searchInput = document.getElementById('search');
+        const impactFilter = document.getElementById('filter-impact');
+        const sortBy = document.getElementById('sort-by');
+        const commandCount = document.getElementById('command-count');
+        const noResults = document.getElementById('no-results');
+        const categoryFiltersContainer = document.getElementById('category-filters');
+        
+        let activeCategory = 'all';
+
+        const impactOrder = {
+            'High': 5, 'Medium to High': 4, 'Medium': 3, 'Low to Medium': 2, 'Low': 1, 'Varies': 0, 'None': -1, 'Negligible': -2
+        };
+
+        const impactColors = {
+            'High': 'bg-red-100 text-red-800 border-red-200',
+            'Medium to High': 'bg-orange-100 text-orange-800 border-orange-200',
+            'Medium': 'bg-amber-100 text-amber-800 border-amber-200',
+            'Low to Medium': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+            'Low': 'bg-green-100 text-green-800 border-green-200',
+            'Varies': 'bg-blue-100 text-blue-800 border-blue-200',
+            'None': 'bg-slate-100 text-slate-800 border-slate-200',
+            'Negligible': 'bg-gray-100 text-gray-800 border-gray-200'
+        };
+
+        const createCategories = () => {
+            const categories = ['all', ...new Set(commands.map(c => c.category))].sort();
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.textContent = category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ');
+                button.dataset.category = category;
+                button.className = 'px-3 py-1 text-sm font-medium rounded-full border bg-white text-slate-600 hover:bg-slate-100 transition-colors';
+                if (category === 'all') {
+                    button.classList.add('filter-btn-active');
+                }
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('#category-filters button').forEach(btn => btn.classList.remove('filter-btn-active'));
+                    button.classList.add('filter-btn-active');
+                    activeCategory = category;
+                    filterAndRender();
+                });
+                categoryFiltersContainer.appendChild(button);
+            });
+        };
+
+        const renderCommands = (filteredCommands) => {
+            commandGrid.innerHTML = '';
+            commandCount.textContent = `${filteredCommands.length} command(s) found.`;
+
+            if (filteredCommands.length === 0) {
+                noResults.classList.remove('hidden');
+            } else {
+                noResults.classList.add('hidden');
+            }
+
+            filteredCommands.forEach(cmd => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-5 rounded-lg shadow-md border border-slate-200 flex flex-col justify-between gap-4 fade-in';
+                
+                let commandName = cmd.command;
+                if(commandName.includes('(value)')) {
+                    commandName = commandName.replace('(value)', '<span class="text-indigo-500 font-normal">(value)</span>');
+                } else {
+                    const parts = commandName.split(' ');
+                    if(parts.length > 1) {
+                         commandName = `${parts[0]} <span class="text-indigo-500">${parts.slice(1).join(' ')}</span>`
+                    }
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+                             <h2 class="text-lg font-bold text-slate-900 font-mono">${commandName}</h2>
+                             <div class="flex gap-2">
+                                <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${impactColors[cmd.impact] || 'bg-gray-100 text-gray-800 border-gray-200'} border">${cmd.impact}</span>
+                             </div>
+                        </div>
+                        <p class="text-sm text-slate-500 mb-2"><span class="font-semibold text-slate-700">Category:</span> ${cmd.category}</p>
+                        <p class="text-sm text-slate-500 mb-2"><span class="font-semibold text-slate-700">Controls:</span> ${cmd.controls}</p>
+                        <p class="text-sm text-slate-500"><span class="font-semibold text-slate-700">Effect:</span> ${cmd.effect}</p>
+                    </div>
+                    <button data-command="${cmd.command}" class="copy-btn w-full mt-2 bg-slate-600 text-white py-2 px-4 rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 transition-all duration-200 ease-in-out">
+                        Copy Command
+                    </button>
+                `;
+                commandGrid.appendChild(card);
+            });
+
+            document.querySelectorAll('.copy-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const commandToCopy = e.target.dataset.command;
+                    const tempTextarea = document.createElement('textarea');
+                    tempTextarea.value = commandToCopy;
+                    document.body.appendChild(tempTextarea);
+                    tempTextarea.select();
+                    try {
+                        document.execCommand('copy');
+                        e.target.textContent = 'Copied!';
+                        setTimeout(() => {
+                            e.target.textContent = 'Copy Command';
+                        }, 1500);
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        e.target.textContent = 'Copy Failed';
+                         setTimeout(() => {
+                            e.target.textContent = 'Copy Command';
+                        }, 1500);
+                    }
+                    document.body.removeChild(tempTextarea);
+                });
+            });
+        };
+
+        const filterAndRender = () => {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedImpact = impactFilter.value;
+            const selectedSort = sortBy.value;
+
+            let filteredCommands = commands.filter(cmd => {
+                const matchesSearch = searchTerm === '' ||
+                    cmd.command.toLowerCase().includes(searchTerm) ||
+                    cmd.controls.toLowerCase().includes(searchTerm) ||
+                    cmd.effect.toLowerCase().includes(searchTerm) ||
+                    cmd.category.toLowerCase().includes(searchTerm);
+
+                const matchesImpact = selectedImpact === 'all' || cmd.impact === selectedImpact;
+                
+                const matchesCategory = activeCategory === 'all' || cmd.category === activeCategory;
+
+                return matchesSearch && matchesImpact && matchesCategory;
+            });
+
+            if (selectedSort === 'alphabetical') {
+                filteredCommands.sort((a, b) => a.command.localeCompare(b.command));
+            } else if (selectedSort === 'impact-desc') {
+                filteredCommands.sort((a, b) => (impactOrder[b.impact] ?? -3) - (impactOrder[a.impact] ?? -3));
+            } else if (selectedSort === 'impact-asc') {
+                filteredCommands.sort((a, b) => (impactOrder[a.impact] ?? -3) - (impactOrder[b.impact] ?? -3));
+            }
+
+            renderCommands(filteredCommands);
+        };
+
+        searchInput.addEventListener('input', filterAndRender);
+        impactFilter.addEventListener('change', filterAndRender);
+        sortBy.addEventListener('change', filterAndRender);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            createCategories();
+            filterAndRender();
+        });
+    </script>
+</body>
+</html>
